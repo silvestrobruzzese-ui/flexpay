@@ -2,7 +2,7 @@
 
 **Versione:** 1.0
 **Ultimo aggiornamento:** 4 Luglio 2026
-**GitHub:** https://github.com/silvestrobruzzese-ui/flexpay
+**Stato:** Funzionante in Produzione
 
 ---
 
@@ -10,8 +10,9 @@
 
 | Servizio | URL |
 |----------|-----|
-| **Backend API** | https://flexpay-backend-production.up.railway.app |
 | **Frontend Checkout** | https://flexpay-checkout.pages.dev |
+| **Backend API** | https://flexpay-backend-production.up.railway.app |
+| **Stripe Dashboard** | https://dashboard.stripe.com |
 | **GitHub Repository** | https://github.com/silvestrobruzzese-ui/flexpay |
 | **Railway Dashboard** | https://railway.com/project/5cca468e-2709-4787-8dff-7e57c7a1af71 |
 
@@ -24,277 +25,85 @@
 | **GitHub** | silvestrobruzzese-ui |
 | **Railway** | silvestrobruzzese@gmail.com |
 | **Cloudflare** | silvestrobruzzese@gmail.com |
+| **Stripe** | Gianni Bruzzese (modalità test) |
 
 ---
 
-## Le Tue Commissioni - Dove Vanno?
+## Funzionalità Attive
 
-### Come Funziona il Flusso dei Soldi
-
-```
-Cliente paga €100
-       │
-       ▼
-┌─────────────────────────────────────────────────────┐
-│                    STRIPE                            │
-│                                                      │
-│  1. Riceve €100 dal cliente                         │
-│  2. Trattiene fee Stripe: ~€1.65 (1.4% + €0.25)    │
-│  3. Il resto va dove configurato                    │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
-
-### ⚠️ IMPORTANTE: Configurazione Stripe Connect
-
-**Attualmente**, il codice calcola la tua commissione (0.5%) ma i soldi vanno direttamente al TUO account Stripe. Per far funzionare FlexPay con merchant esterni, devi configurare **Stripe Connect**.
-
-#### Opzione 1: Tu Ricevi Tutto (Setup Attuale)
-
-Con la configurazione attuale:
-- Tutti i pagamenti arrivano sul TUO account Stripe
-- Tu paghi manualmente i merchant
-- Le tue commissioni le trattieni direttamente
-
-```
-Cliente → Stripe (tuo account) → Tu paghi merchant manualmente
-```
-
-**Ideale per:** Test iniziali, pochi merchant fidati
-
-#### Opzione 2: Stripe Connect (Consigliato per Produzione)
-
-Per scalare con merchant automatici:
-
-1. **Attiva Stripe Connect** su https://dashboard.stripe.com/connect/accounts/overview
-2. **Ogni merchant** deve creare un account Stripe collegato
-3. **I pagamenti** vanno direttamente al merchant, con la tua fee trattenuta automaticamente
-
-```
-Cliente → Stripe → Merchant riceve €98.35
-                 → Tu ricevi €0.50 (application fee)
-                 → Stripe trattiene €1.15
-```
-
-#### Come Attivare Stripe Connect
-
-1. Vai su https://dashboard.stripe.com/settings/connect
-2. Completa la verifica del tuo business
-3. Scegli il tipo di account:
-   - **Standard**: I merchant gestiscono tutto loro
-   - **Express**: Setup semplificato, tu gestisci parte
-   - **Custom**: Controllo totale (più complesso)
-
-4. Modifica il codice per usare `application_fee_amount`:
-
-```typescript
-// In checkout.controller.ts - createPaymentIntent
-const paymentIntent = await stripe.paymentIntents.create({
-  amount: amountInCents,
-  currency: session.currency.toLowerCase(),
-  application_fee_amount: Math.round(amount * 0.5), // 0.5% per te
-  transfer_data: {
-    destination: merchant.stripeConnectAccountId, // Account del merchant
-  },
-  // ... resto configurazione
-});
-```
-
-### Dove Vedere le Tue Commissioni
-
-1. **Stripe Dashboard** → https://dashboard.stripe.com
-   - Vai su **Payments** per vedere tutte le transazioni
-   - Vai su **Balance** per vedere i tuoi fondi disponibili
-   - Vai su **Payouts** per configurare i prelievi automatici
-
-2. **Database FlexPay** - Ogni transazione registra:
-   - `platformFee`: La tua commissione calcolata
-   - `providerFee`: Fee di Stripe/PayPal/Mollie
-   - `netAmount`: Quanto va al merchant
-
-### Ricevere i Soldi
-
-1. **Stripe** trasferisce automaticamente sul tuo conto bancario
-2. Configura in: Stripe Dashboard → Settings → Payouts
-3. Puoi scegliere:
-   - Payout giornaliero automatico
-   - Payout settimanale
-   - Payout manuale
+| Funzionalità | Stato | Note |
+|--------------|-------|------|
+| Pagamento con carta | ✅ | Visa, Mastercard, Amex |
+| 3D Secure | ✅ | Autenticazione bancaria automatica |
+| Apple Pay | ✅ | Via Stripe |
+| Google Pay | ✅ | Via Stripe |
+| Chiusura popup automatica | ✅ | Dopo pagamento completato |
+| Redirect al merchant | ✅ | successUrl / cancelUrl |
 
 ---
 
-## L'Idea Fondamentale
+## Come Funziona
 
-### Il Problema
-
-Creare un sistema di pagamento come Stripe richiede:
-- Licenze bancarie/finanziarie (costi enormi, anni di burocrazia)
-- Certificazione PCI DSS (€50-100K/anno)
-- Capitale minimo €1-5 milioni
-- Team legale, compliance, antifrode
-- Responsabilità su rischi, rimborsi, dispute
-
-**Troppo complesso, troppo costoso, troppo rischioso.**
-
-### La Soluzione: White-Label Payment Gateway
-
-**FlexPay** non costruisce l'infrastruttura, ma diventa il **VOLTO** dei pagamenti.
+### Flusso di Pagamento
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│   L'UTENTE VEDE:        "Paga con FlexPay"                             │
-│                                                                         │
-│   DIETRO LE QUINTE:     Stripe / PayPal / Mollie / Klarna              │
-│                         (loro gestiscono TUTTO)                         │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  SITO MERCHANT  │     │    FLEXPAY      │     │     STRIPE      │
+│                 │     │                 │     │                 │
+│  [Paga €50]     │────►│  Popup checkout │────►│  Processa       │
+│                 │     │  - Carta        │     │  pagamento      │
+│                 │     │  - Apple Pay    │     │                 │
+│                 │     │  - Google Pay   │     │  3D Secure?     │
+│                 │◄────│                 │◄────│  ✓ Completato   │
+│  Grazie!        │     │  Chiude popup   │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
-### Il Modello di Business
+### Flusso Tecnico
+
+1. **Merchant** chiama API per creare sessione di checkout
+2. **Cliente** viene reindirizzato al popup FlexPay
+3. **Cliente** sceglie metodo di pagamento
+4. **Stripe** processa il pagamento (+ 3D Secure se richiesto)
+5. **FlexPay** conferma e chiude popup
+6. **Cliente** torna al sito del merchant
+
+---
+
+## Le Tue Commissioni
+
+### Modello di Business
 
 ```
 Transazione €100
      │
-     ├── Provider prende: ~€1.50-2.00 (fee variabile)
-     ├── FlexPay prende:  €0.50 (0.5% commissione fissa)
-     └── Merchant riceve: ~€97.50-98.00 (netto)
+     ├── Stripe trattiene:  ~€1.65 (1.4% + €0.25)
+     ├── FlexPay trattiene: €0.50 (0.5%)
+     └── Merchant riceve:   ~€97.85
 ```
 
-**Guadagno stimato:**
+### Dove Vanno i Soldi
 
-| Volume mensile | Transazione media | Guadagno FlexPay |
-|----------------|-------------------|------------------|
-| 1.000 tx | €50 | €250/mese |
-| 10.000 tx | €50 | €2.500/mese |
-| 100.000 tx | €50 | €25.000/mese |
+**Configurazione attuale (Test Mode):**
+- Tutti i pagamenti vanno sul TUO account Stripe
+- Modalità test = nessun soldo vero
+
+**Per Produzione con Merchant Esterni:**
+- Attiva **Stripe Connect** per gestire payout automatici
+- Ogni merchant collega il suo account Stripe
+- Le tue commissioni vengono trattenute automaticamente
+
+### Come Ricevere i Soldi
+
+1. Vai su https://dashboard.stripe.com
+2. Settings → Payouts → Configura conto bancario
+3. Stripe trasferisce automaticamente (giornaliero/settimanale)
 
 ---
 
-## Guida Passo-Passo: Cosa Abbiamo Fatto
+## Guida Rapida: Creare un Pagamento
 
-### FASE 1: Creazione del Progetto ✅
-
-Abbiamo creato la struttura completa:
-
-```
-flexpay/
-├── backend/           # API Node.js + Express + TypeScript
-├── frontend/          # React + Vite + TailwindCSS
-├── sdk/               # SDK JavaScript per i merchant
-└── GUIDA.md           # Questa guida
-```
-
-### FASE 2: Build Locale ✅
-
-```bash
-# Backend
-cd ~/Desktop/flexpay/backend
-npm install
-npx prisma generate
-npm run build          # ✅ Compilazione TypeScript riuscita
-
-# Frontend
-cd ~/Desktop/flexpay/frontend
-npm install
-npm run build          # ✅ Build Vite riuscita
-```
-
-### FASE 3: Repository GitHub ✅
-
-```bash
-cd ~/Desktop/flexpay
-git init
-git add -A
-git commit -m "Initial commit: FlexPay Payment Gateway"
-gh repo create flexpay --private --source=. --push
-```
-
-**Repository creato:** https://github.com/silvestrobruzzese-ui/flexpay
-
-### FASE 4: Deploy Backend su Railway ✅
-
-1. **Creato progetto Railway:**
-   ```bash
-   railway init --name flexpay-api
-   ```
-
-2. **Aggiunto database PostgreSQL:**
-   ```bash
-   railway add --database postgres
-   ```
-
-3. **Configurato variabili ambiente:**
-   ```bash
-   railway variable set 'DATABASE_URL=${{Postgres.DATABASE_URL}}'
-   railway variable set 'JWT_SECRET=...'
-   railway variable set 'CHECKOUT_URL=https://flexpay-checkout.pages.dev'
-   railway variable set 'FRONTEND_URL=https://flexpay-checkout.pages.dev'
-   ```
-
-4. **Deploy del codice:**
-   ```bash
-   railway up --detach
-   ```
-
-5. **Creato dominio pubblico:**
-   ```bash
-   railway domain --port 3000
-   ```
-
-**Backend live:** https://flexpay-backend-production.up.railway.app
-
-### FASE 5: Deploy Frontend su Cloudflare Pages ✅
-
-1. **Creato progetto Cloudflare Pages:**
-   ```bash
-   wrangler pages project create flexpay-checkout --production-branch main
-   ```
-
-2. **Build con URL API di produzione:**
-   ```bash
-   VITE_API_URL=https://flexpay-backend-production.up.railway.app npm run build
-   ```
-
-3. **Deploy:**
-   ```bash
-   wrangler pages deploy dist --project-name flexpay-checkout --branch main
-   ```
-
-**Frontend live:** https://flexpay-checkout.pages.dev
-
----
-
-## Cosa Devi Fare Tu Adesso
-
-### STEP 1: Configura le Chiavi dei Provider
-
-Vai su **Railway Dashboard** → https://railway.com/project/5cca468e-2709-4787-8dff-7e57c7a1af71
-
-Clicca su **flexpay-backend** → **Variables** e aggiungi:
-
-```env
-# OBBLIGATORIO: Stripe
-STRIPE_SECRET_KEY=sk_test_... (o sk_live_... per produzione)
-STRIPE_PUBLISHABLE_KEY=pk_test_... (o pk_live_... per produzione)
-
-# OPZIONALE: PayPal
-PAYPAL_CLIENT_ID=...
-PAYPAL_CLIENT_SECRET=...
-PAYPAL_MODE=sandbox (o live)
-
-# OPZIONALE: Mollie
-MOLLIE_API_KEY=test_... (o live_...)
-```
-
-### STEP 2: Esegui Migrazione Database
-
-```bash
-cd ~/Desktop/flexpay/backend
-railway run npx prisma db push
-```
-
-### STEP 3: Crea il Primo Merchant
+### 1. Crea Merchant (una volta)
 
 ```bash
 curl -X POST https://flexpay-backend-production.up.railway.app/api/merchant/register \
@@ -302,73 +111,224 @@ curl -X POST https://flexpay-backend-production.up.railway.app/api/merchant/regi
   -d '{
     "email": "tuaemail@esempio.com",
     "password": "password-sicura",
-    "businessName": "Il Tuo Negozio"
+    "businessName": "Nome Negozio"
   }'
 ```
 
-Salva la `secretKey` che ricevi!
+Risposta:
+```json
+{
+  "merchant": {
+    "secretKey": "sk_live_xxxxx"  ← SALVA QUESTA!
+  }
+}
+```
 
-### STEP 4: Testa un Pagamento
+### 2. Crea Sessione di Checkout
 
 ```bash
-# Crea sessione di checkout
 curl -X POST https://flexpay-backend-production.up.railway.app/api/checkout/sessions \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_live_TUA_SECRET_KEY" \
   -d '{
-    "amount": 10.00,
+    "amount": 50.00,
     "currency": "EUR",
-    "description": "Test pagamento",
-    "successUrl": "https://example.com/success",
-    "cancelUrl": "https://example.com/cancel"
+    "description": "Ordine #123",
+    "successUrl": "https://tuosito.com/grazie",
+    "cancelUrl": "https://tuosito.com/carrello"
   }'
 ```
 
-Apri l'URL restituito nel browser e testa il pagamento!
+Risposta:
+```json
+{
+  "id": "abc-123-xyz",
+  "url": "https://flexpay-checkout.pages.dev/abc-123-xyz",
+  "expiresAt": "2026-07-04T14:00:00Z"
+}
+```
 
-### STEP 5: (Opzionale) Dominio Personalizzato
+### 3. Reindirizza il Cliente
 
-#### Backend - Dominio API
-1. Railway Dashboard → flexpay-backend → Settings → Domains
-2. Aggiungi `api.flexpay.it` (o il tuo dominio)
-3. Configura DNS con il CNAME fornito
+Apri l'URL in un popup o redirect:
 
-#### Frontend - Dominio Checkout
-1. Cloudflare Dashboard → Pages → flexpay-checkout → Custom domains
-2. Aggiungi `checkout.flexpay.it`
-3. Se dominio su Cloudflare, automatico. Altrimenti configura CNAME
+```javascript
+// Popup (consigliato)
+window.open(url, 'FlexPay', 'width=450,height=700');
+
+// Oppure redirect
+window.location.href = url;
+```
 
 ---
 
-## Provider Integrati
+## Carte di Test
 
-| Provider | Tipo | Stato | Fee Stimate |
-|----------|------|-------|-------------|
-| **Stripe** | Carte, Wallet | ✅ Attivo | 1.4% + €0.25 |
-| **Apple Pay** | Wallet digitale | ✅ Attivo (via Stripe) | 1.4% + €0.25 |
-| **Google Pay** | Wallet digitale | ✅ Attivo (via Stripe) | 1.4% + €0.25 |
-| **PayPal** | Conto PayPal | ✅ Attivo | 2.9% + €0.35 |
-| **Mollie** | iDEAL, Bancontact, SOFORT | ✅ Attivo | 1.8% + €0.25 |
-| **Klarna** | BNPL (rate) | ⏸️ Richiede contratto | ~3.5% + €0.30 |
-| **Satispay** | App italiana | ⏸️ Richiede contratto | ~1.5% + €0.20 |
-| **Scalapay** | BNPL (rate) | ⏸️ Richiede contratto | ~3.0% + €0.30 |
+| Numero | Risultato |
+|--------|-----------|
+| `4242 4242 4242 4242` | Successo immediato |
+| `4000 0025 0000 3155` | Richiede 3D Secure |
+| `4000 0000 0000 0002` | Carta rifiutata |
+| `4000 0000 0000 9995` | Fondi insufficienti |
 
-### Come Ottenere le Chiavi
+**Per tutte:** Scadenza `12/30`, CVC `123`
 
-#### Stripe (Obbligatorio)
-1. Registrati su https://dashboard.stripe.com/register
-2. Vai su Developers → API Keys
-3. Copia Publishable key e Secret key
+---
 
-#### PayPal (Opzionale)
+## Integrazione nel Tuo Sito
+
+### HTML + JavaScript
+
+```html
+<button id="pay-button">Paga €50.00</button>
+
+<script>
+document.getElementById('pay-button').onclick = async () => {
+  // Chiama il tuo backend per creare la sessione
+  const response = await fetch('/api/crea-pagamento', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount: 50.00 })
+  });
+
+  const { url } = await response.json();
+
+  // Apri popup FlexPay
+  const popup = window.open(url, 'FlexPay', 'width=450,height=700');
+
+  // Ascolta messaggio di completamento
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'flexpay:success') {
+      popup.close();
+      alert('Pagamento completato!');
+      // Aggiorna la pagina o mostra conferma
+    }
+  });
+};
+</script>
+```
+
+### Dal Tuo Backend (Node.js)
+
+```javascript
+// routes/pagamento.js
+app.post('/api/crea-pagamento', async (req, res) => {
+  const response = await fetch(
+    'https://flexpay-backend-production.up.railway.app/api/checkout/sessions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.FLEXPAY_SECRET_KEY
+      },
+      body: JSON.stringify({
+        amount: req.body.amount,
+        currency: 'EUR',
+        description: `Ordine #${req.body.orderId}`,
+        successUrl: 'https://tuosito.com/grazie',
+        cancelUrl: 'https://tuosito.com/carrello',
+        metadata: {
+          orderId: req.body.orderId,
+          customerId: req.body.customerId
+        }
+      })
+    }
+  );
+
+  const data = await response.json();
+  res.json({ url: data.url });
+});
+```
+
+---
+
+## API Reference
+
+### Autenticazione
+
+Tutte le richieste API richiedono header:
+```
+X-API-Key: sk_live_xxxxx
+```
+
+### Endpoints
+
+#### POST /api/merchant/register
+Registra un nuovo merchant.
+
+#### POST /api/merchant/login
+Login merchant, restituisce JWT token.
+
+#### POST /api/checkout/sessions
+Crea nuova sessione di checkout.
+
+#### GET /api/checkout/sessions/:id
+Ottiene dettagli sessione (per il frontend).
+
+---
+
+## Variabili Ambiente (Railway)
+
+| Variabile | Valore |
+|-----------|--------|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `JWT_SECRET` | (generato automaticamente) |
+| `STRIPE_SECRET_KEY` | `sk_test_...` |
+| `STRIPE_PUBLISHABLE_KEY` | `pk_test_...` |
+| `CHECKOUT_URL` | `https://flexpay-checkout.pages.dev` |
+| `FRONTEND_URL` | `https://flexpay-checkout.pages.dev` |
+| `PORT` | `3000` |
+
+---
+
+## Passare in Produzione (Live)
+
+### 1. Attiva Stripe Live Mode
+
+1. Vai su https://dashboard.stripe.com
+2. Clicca "Modalità di test" → "Modalità live"
+3. Completa verifica account (dati aziendali, conto bancario)
+4. Copia le nuove chiavi live
+
+### 2. Aggiorna Railway
+
+```bash
+railway variable set 'STRIPE_SECRET_KEY=sk_live_...'
+railway variable set 'STRIPE_PUBLISHABLE_KEY=pk_live_...'
+```
+
+### 3. Checklist Produzione
+
+- [ ] Account Stripe verificato (documenti, conto bancario)
+- [ ] Chiavi Stripe live configurate su Railway
+- [ ] Webhook Stripe configurato (opzionale)
+- [ ] Dominio personalizzato (opzionale)
+- [ ] SSL attivo (automatico con Cloudflare)
+- [ ] Test con carta reale (importo minimo €0.50)
+
+---
+
+## Aggiungere Altri Provider
+
+### PayPal
+
 1. Registrati su https://developer.paypal.com
-2. Crea app in Dashboard → My Apps & Credentials
-3. Copia Client ID e Secret
+2. Crea app e ottieni Client ID + Secret
+3. Aggiungi su Railway:
+   ```
+   PAYPAL_CLIENT_ID=...
+   PAYPAL_CLIENT_SECRET=...
+   PAYPAL_MODE=sandbox  (o "live")
+   ```
 
-#### Mollie (Opzionale)
+### Mollie
+
 1. Registrati su https://my.mollie.com
-2. Vai su Developers → API keys
-3. Copia la API key
+2. Ottieni API Key
+3. Aggiungi su Railway:
+   ```
+   MOLLIE_API_KEY=test_...  (o "live_...")
+   ```
 
 ---
 
@@ -378,39 +338,39 @@ Apri l'URL restituito nel browser e testa il pagamento!
 flexpay/
 ├── backend/
 │   ├── src/
-│   │   ├── app.ts                      # Entry point Express
+│   │   ├── app.ts                 # Entry point
 │   │   ├── config/
-│   │   │   ├── database.ts             # Client Prisma
-│   │   │   └── providers.ts            # Config provider + fee
+│   │   │   ├── database.ts        # Prisma client
+│   │   │   └── providers.ts       # Configurazione provider
 │   │   ├── controllers/
-│   │   │   ├── merchant.controller.ts  # Auth merchant
-│   │   │   └── checkout.controller.ts  # Logica pagamenti
+│   │   │   ├── checkout.controller.ts
+│   │   │   └── merchant.controller.ts
 │   │   ├── services/
-│   │   │   ├── paypal.service.ts       # Integrazione PayPal
-│   │   │   └── mollie.service.ts       # Integrazione Mollie
+│   │   │   ├── paypal.service.ts
+│   │   │   └── mollie.service.ts
 │   │   ├── middleware/
-│   │   │   └── auth.middleware.ts      # JWT + API Key
+│   │   │   └── auth.middleware.ts
 │   │   ├── routes/
 │   │   └── prisma/
-│   │       └── schema.prisma           # Schema database
+│   │       └── schema.prisma
 │   └── package.json
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx                     # Router principale
+│   │   ├── App.tsx
 │   │   ├── pages/
-│   │   │   ├── Checkout.tsx            # Pagina checkout
+│   │   │   ├── Checkout.tsx       # Pagina principale checkout
 │   │   │   ├── PayPalReturn.tsx
 │   │   │   └── MollieReturn.tsx
 │   │   └── services/
-│   │       └── api.ts                  # Client API
+│   │       └── api.ts
 │   ├── public/
-│   │   ├── _redirects                  # Cloudflare SPA routing
-│   │   └── _headers                    # Security headers
-│   └── wrangler.toml                   # Config Cloudflare
+│   │   ├── _redirects
+│   │   └── _headers
+│   └── package.json
 │
 ├── sdk/
-│   ├── flexpay.js                      # SDK per merchant
+│   ├── flexpay.js
 │   └── example.html
 │
 └── GUIDA.md
@@ -418,132 +378,59 @@ flexpay/
 
 ---
 
-## API Reference
+## Comandi Utili
 
-### Merchant
+```bash
+# Backend - vedere log
+railway logs --service flexpay-backend
 
-```http
-# Registrazione
-POST /api/merchant/register
-Content-Type: application/json
+# Backend - aprire dashboard
+railway open
 
-{
-  "email": "merchant@example.com",
-  "password": "securepassword",
-  "businessName": "My Store"
-}
+# Backend - rideploy
+cd backend && railway up
 
-# Login
-POST /api/merchant/login
-Content-Type: application/json
+# Frontend - build e deploy
+cd frontend
+npm run build
+wrangler pages deploy dist --project-name flexpay-checkout
 
-{
-  "email": "merchant@example.com",
-  "password": "securepassword"
-}
+# Database - push schema
+railway run npx prisma db push
+
+# Git - commit e push
+git add -A && git commit -m "descrizione" && git push
 ```
-
-### Checkout
-
-```http
-# Crea Sessione
-POST /api/checkout/sessions
-X-API-Key: sk_live_xxxxx
-Content-Type: application/json
-
-{
-  "amount": 99.00,
-  "currency": "EUR",
-  "description": "Descrizione prodotto",
-  "successUrl": "https://tuosito.com/success",
-  "cancelUrl": "https://tuosito.com/cancel",
-  "metadata": { "orderId": "12345" }
-}
-
-# Risposta
-{
-  "id": "session_xxx",
-  "url": "https://flexpay-checkout.pages.dev/session_xxx",
-  "expiresAt": "2026-07-04T13:30:00Z"
-}
-```
-
----
-
-## Carte di Test
-
-| Numero | Risultato |
-|--------|-----------|
-| `4242 4242 4242 4242` | Successo |
-| `4000 0000 0000 0002` | Rifiutata |
-| `4000 0025 0000 3155` | 3D Secure |
-| `4000 0000 0000 9995` | Fondi insufficienti |
-
-Scadenza: qualsiasi data futura (es. `12/30`)
-CVC: qualsiasi 3 cifre (es. `123`)
 
 ---
 
 ## Troubleshooting
 
 ### "Sessione non trovata"
-- Verifica che backend sia attivo: `curl https://flexpay-backend-production.up.railway.app/health`
-- Controlla i log su Railway
+- La sessione è scaduta (30 minuti) o già completata
+- Crea una nuova sessione
 
-### "Stripe non configurato"
-- Aggiungi STRIPE_SECRET_KEY nelle variabili Railway
-- Il backend si riavvia automaticamente
+### "Providers vuoti" / Nessun metodo di pagamento
+- Verifica STRIPE_SECRET_KEY su Railway
+- Fai redeploy: `railway up --service flexpay-backend`
 
-### Pagamento fallisce
-- Usa carte di test
-- Controlla Stripe Dashboard → Developers → Logs
+### "3D Secure non funziona"
+- In test mode usa carta: `4000 0025 0000 3155`
+- In produzione dipende dalla banca del cliente
 
-### CORS errors
-- Verifica FRONTEND_URL nelle variabili Railway
-
----
-
-## Comandi Utili
-
-```bash
-# Vedere i log del backend
-railway logs
-
-# Aprire dashboard Railway
-railway open
-
-# Aggiornare variabili
-railway variable set 'KEY=value'
-
-# Rideploy backend
-railway up
-
-# Rideploy frontend
-cd frontend && npm run build && wrangler pages deploy dist --project-name flexpay-checkout
-```
+### Pagamento fallito
+- Controlla Stripe Dashboard → Payments
+- Verifica i log: `railway logs`
 
 ---
 
-## Prossimi Passi Consigliati
+## Supporto
 
-1. **Configura Stripe Live** - Verifica il tuo account per accettare pagamenti reali
-2. **Attiva Stripe Connect** - Per gestire automaticamente i payout ai merchant
-3. **Dominio personalizzato** - `api.flexpay.it` e `checkout.flexpay.it`
-4. **Dashboard Merchant** - UI per i merchant per vedere transazioni
-5. **Webhook sicuri** - Firma le notifiche ai merchant
+- **Stripe Docs:** https://stripe.com/docs
+- **Railway Docs:** https://docs.railway.app
+- **Cloudflare Pages:** https://developers.cloudflare.com/pages
 
 ---
 
-## Note Legali
-
-FlexPay è un aggregatore di pagamenti. **Non gestisce direttamente fondi.**
-
-- I pagamenti sono processati da Stripe, PayPal, Mollie
-- La compliance PCI DSS è gestita dai provider
-- FlexPay non richiede licenze bancarie
-- I merchant sono responsabili dei loro obblighi fiscali
-
----
-
-*Creato con Claude Code - 4 Luglio 2026*
-*GitHub: silvestrobruzzese-ui/flexpay*
+*FlexPay - Creato con Claude Code*
+*4 Luglio 2026*
