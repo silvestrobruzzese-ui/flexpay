@@ -201,10 +201,16 @@ export default function Checkout() {
     window.parent.postMessage({ type: 'flexpay:success', sessionId }, '*');
     window.opener?.postMessage({ type: 'flexpay:success', sessionId }, '*');
 
-    // Auto redirect after 2 seconds
+    // Try to close popup after 1.5 seconds, or redirect if not a popup
     setTimeout(() => {
-      window.location.href = url;
-    }, 2000);
+      // If opened as popup, close it
+      if (window.opener) {
+        window.close();
+      } else {
+        // If not a popup, redirect to merchant's success URL
+        window.location.href = url;
+      }
+    }, 1500);
   };
 
   const handleCancel = async () => {
