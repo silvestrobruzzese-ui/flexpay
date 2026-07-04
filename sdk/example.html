@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo Integrazione FlexPay</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 8px;
+    }
+    p {
+      color: #666;
+      line-height: 1.6;
+    }
+    .product {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    .product img {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #ddd;
+    }
+    .product-info h3 {
+      margin: 0 0 8px;
+      color: #333;
+    }
+    .product-info .price {
+      font-size: 24px;
+      font-weight: bold;
+      color: #667eea;
+    }
+    #flexpay-button {
+      margin-top: 20px;
+    }
+    .code-block {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .code-block .comment {
+      color: #6a9955;
+    }
+    .code-block .string {
+      color: #ce9178;
+    }
+    .code-block .keyword {
+      color: #569cd6;
+    }
+    .status {
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      display: none;
+    }
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+      display: block;
+    }
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🛒 Demo E-commerce</h1>
+    <p>Esempio di integrazione FlexPay nel tuo checkout</p>
+
+    <div class="product">
+      <div style="width:120px;height:120px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:48px;">📦</span>
+      </div>
+      <div class="product-info">
+        <h3>Prodotto Premium</h3>
+        <p>Descrizione del prodotto fantastico</p>
+        <div class="price">€ 99.00</div>
+      </div>
+    </div>
+
+    <!-- FlexPay Button Container -->
+    <div id="flexpay-button"></div>
+
+    <!-- Status Message -->
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Codice di Integrazione</h2>
+    <p>Aggiungi questo codice al tuo sito:</p>
+
+    <div class="code-block">
+<span class="comment">// 1. Includi lo script</span>
+&lt;script src="<span class="string">https://cdn.flexpay.com/sdk.js</span>"&gt;&lt;/script&gt;
+
+<span class="comment">// 2. Inizializza con la tua public key</span>
+&lt;script&gt;
+  FlexPay.init('<span class="string">pk_live_your_key_here</span>');
+
+  <span class="comment">// 3. Crea il bottone di pagamento</span>
+  FlexPay.createButton('<span class="string">#flexpay-button</span>', {
+    amount: <span class="keyword">99.00</span>,
+    currency: '<span class="string">EUR</span>',
+    description: '<span class="string">Prodotto Premium</span>',
+    successUrl: '<span class="string">https://tuosito.com/success</span>',
+    cancelUrl: '<span class="string">https://tuosito.com/cancel</span>',
+    onSuccess: <span class="keyword">function</span>(data) {
+      console.log('<span class="string">Pagamento completato!</span>', data);
+    },
+    onCancel: <span class="keyword">function</span>(data) {
+      console.log('<span class="string">Pagamento annullato</span>');
+    }
+  });
+&lt;/script&gt;
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔧 Integrazione Backend</h2>
+    <p>Per sicurezza, crea le sessioni dal tuo server:</p>
+
+    <div class="code-block">
+<span class="comment">// Node.js - Crea sessione di checkout</span>
+<span class="keyword">const</span> response = <span class="keyword">await</span> fetch('<span class="string">https://api.flexpay.com/api/checkout/sessions</span>', {
+  method: '<span class="string">POST</span>',
+  headers: {
+    '<span class="string">Content-Type</span>': '<span class="string">application/json</span>',
+    '<span class="string">X-API-Key</span>': '<span class="string">sk_live_your_secret_key</span>'
+  },
+  body: JSON.stringify({
+    amount: <span class="keyword">99.00</span>,
+    currency: '<span class="string">EUR</span>',
+    description: '<span class="string">Ordine #12345</span>',
+    customerEmail: '<span class="string">cliente@email.com</span>',
+    successUrl: '<span class="string">https://tuosito.com/success</span>',
+    cancelUrl: '<span class="string">https://tuosito.com/cancel</span>',
+    metadata: { orderId: '<span class="string">12345</span>' }
+  })
+});
+
+<span class="keyword">const</span> session = <span class="keyword">await</span> response.json();
+<span class="comment">// Redirect utente a session.url</span>
+    </div>
+  </div>
+
+  <!-- FlexPay SDK -->
+  <script src="flexpay.js"></script>
+  <script>
+    // Initialize FlexPay
+    FlexPay.init('pk_live_demo_key');
+
+    // Create payment button
+    FlexPay.createButton('#flexpay-button', {
+      amount: 99.00,
+      currency: 'EUR',
+      description: 'Prodotto Premium',
+      successUrl: window.location.href + '?status=success',
+      cancelUrl: window.location.href + '?status=cancel',
+      onSuccess: function(data) {
+        showStatus('success', 'Pagamento completato con successo! 🎉');
+      },
+      onCancel: function(data) {
+        showStatus('error', 'Pagamento annullato');
+      },
+      onError: function(error) {
+        showStatus('error', 'Errore: ' + error.error);
+      }
+    });
+
+    function showStatus(type, message) {
+      const status = document.getElementById('status');
+      status.className = 'status ' + type;
+      status.textContent = message;
+    }
+
+    // Check URL params
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('status') === 'success') {
+      showStatus('success', 'Pagamento completato con successo! 🎉');
+    } else if (params.get('status') === 'cancel') {
+      showStatus('error', 'Pagamento annullato');
+    }
+  </script>
+</body>
+</html>

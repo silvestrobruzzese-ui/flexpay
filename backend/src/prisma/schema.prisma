@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Merchant = chi integra FlexPay sul proprio sito
+model Merchant {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  businessName  String
+  website       String?
+
+  // API Keys
+  publicKey     String   @unique  // pk_live_xxx o pk_test_xxx
+  secretKey     String   @unique  // sk_live_xxx o sk_test_xxx
+
+  // Provider credentials (merchant's own accounts)
+  stripeAccountId   String?  // Stripe Connect account ID
+  paypalMerchantId  String?
+
+  // Settings
+  webhookUrl    String?
+  webhookSecret String?
+
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  checkoutSessions CheckoutSession[]
+  transactions     Transaction[]
+}
+
+// Sessione di checkout creata dal merchant
+model CheckoutSession {
+  id              String   @id @default(uuid())
+  merchantId      String
+
+  // Payment details
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("EUR")
+  description     String?
+
+  // Customer info (optional, from merchant)
+  customerEmail   String?
+  customerName    String?
+
+  // URLs
+  successUrl      String
+  cancelUrl       String
+
+  // Status
+  status          CheckoutStatus @default(PENDING)
+
+  // Selected payment method
+  paymentMethod   String?   // "stripe", "paypal", "klarna", etc.
+  providerSessionId String? // ID from the provider
+
+  // Metadata from merchant
+  metadata        Json?
+
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+  transaction     Transaction?
+}
+
+enum CheckoutStatus {
+  PENDING      // Created, waiting for user
+  PROCESSING   // User selected method, processing
+  COMPLETED    // Payment successful
+  FAILED       // Payment failed
+  EXPIRED      // Session expired
+  CANCELLED    // User cancelled
+}
+
+// Transazione completata
+model Transaction {
+  id                String   @id @default(uuid())
+  merchantId        String
+  checkoutSessionId String   @unique
+
+  // Payment details
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String
+
+  // Provider info
+  provider          String   // "stripe", "paypal", "klarna"
+  providerTxId      String   // Transaction ID from provider
+
+  // Fees
+  providerFee       Decimal  @db.Decimal(10, 2)  // Fee charged by provider
+  platformFee       Decimal  @db.Decimal(10, 2)  // Your fee (FlexPay)
+  netAmount         Decimal  @db.Decimal(10, 2)  // Amount to merchant
+
+  // Status
+  status            TransactionStatus @default(PENDING)
+
+  // BNPL details (if applicable)
+  isBNPL            Boolean  @default(false)
+  bnplInstallments  Int?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  merchant          Merchant @relation(fields: [merchantId], references: [id])
+  checkoutSession   CheckoutSession @relation(fields: [checkoutSessionId], references: [id])
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  DISPUTED
+  FAILED
+}
